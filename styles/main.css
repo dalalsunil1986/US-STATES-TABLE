@@ -1,0 +1,30 @@
+.modal-backdrop {
+    opacity: 0.5;
+}
+
+.table-responsive table .population{
+    display: none;
+}
+
+.table-responsive table .panel-body{
+    padding:10px;
+}
+
+.table-responsive > .table > tbody > tr > td{
+    white-space:normal;
+}
+
+body {
+  padding: 0;
+}
+
+
+@media screen and (min-width: 768px) {
+    .container {
+        max-width: 730px;
+    }
+
+    .table-responsive table .population{
+        display: block;
+    }
+}

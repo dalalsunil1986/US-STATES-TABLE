@@ -1,0 +1,290 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>U.S. States List</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width">
+  <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css"> 
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+</head>
+<body ng-app="usStatesApp" ng-controller="MainCtrl">
+    
+    <div class="container-fluid">
+        <h2 class="text-center">A Bookmarkable State Change In A Data Table - AngularJs</h2><br>
+        <p class="text-center">After doing some data state changes ( clicking a page, opening a modal, sorting a property, etc. ) , use the browser's back/forward button to navigate to the initial state.</p>
+        <div class="row"> 
+            <div class="col-md-8 col-md-offset-2">
+                <div class="panel panel-info">
+                    <div class="panel-heading">
+                        <span class="glyphicon glyphicon-list"></span>
+                        U.S. States              
+                    </div>
+                    <div class="panel-body table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <th>
+                                    <a href="" ng-click="sort('name')">
+                                        Name 
+                                        <span ng-show="sortType === 'name' && !sortReverse" class="fa fa-caret-down"></span>
+                                        <span ng-show="sortType === 'name' && sortReverse" class="fa fa-caret-up"></span>
+                                    </a>
+                                </th>
+                                <th>        
+                                    <a href="" ng-click="sort('capital')">
+                                    Capital
+                                        <span ng-show="sortType === 'capital' && !sortReverse" class="fa fa-caret-down"></span>
+                                        <span ng-show="sortType === 'capital' && sortReverse" class="fa fa-caret-up"></span>
+                                    </a>
+                                </th>
+                                <th class="population">        
+                                    <a href="" ng-click="sort('population')">
+                                        Population 
+                                        <span ng-show="sortType === 'population' && !sortReverse" class="fa fa-caret-down"></span>
+                                        <span ng-show="sortType === 'population' && sortReverse" class="fa fa-caret-up"></span>
+                                    </a>
+                                </th>
+                            </thead>
+                            <tbody>
+                                <tr ng-repeat="state in states">
+                                    <td>
+                                        <a href="" ng-click="showStateModal(state.abbreviation)">{{ state.name }} ( {{ state.abbreviation }} )</a>
+                                    </td>
+                                    <td>
+                                        {{ state.capital }}
+                                    </td>
+                                    <td class="population">
+                                    {{ state.population }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div paging
+                            page=currentPage 
+                            page-size=pageSize 
+                            total=totalStates
+                            paging-action="pageChange(page)">
+                        </div>                         
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.2.1/angular.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.1/angular-resource.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.3.9/angular-strap.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.3.9/angular-strap.tpl.js"></script>
+    <script src="lib/angular-paging/paging.js"></script>
+
+    <script>
+      
+      angular.module('usStatesApp', ['ngResource','mgcrea.ngStrap','bw.paging'])
+      .constant('config', {
+            statesApi: 'internal' //change the value to 'external' if want to use externalStatesService             
+      }).service('externalStatesService', function($resource,$modal){ 
+           //service to use if the data source is external         
+           this.totalCount = 50;
+           this.pageSize  = 10;  
+           
+           this.getData = function(offset, limit, sort){
+               //write code here if we're going to call an external REST API
+               //should return a promise
+           };
+
+           this.renderTable = function(offset,limit,sort,callback){
+                this.getData(offset, limit, sort).then(function(states) {      
+                    callback(states);
+                });
+           }; 
+
+      }).service('internalStatesService', function($resource){
+           
+           //service to use if the data source is internal
+           
+           this.totalCount = 50;
+           this.pageSize  = 10;  
+           this.states = null; //cache states data from states.json
+
+           var propSort = function(prop) {
+                var dir=1;
+                if(prop[0] === "-") {
+                    dir = -1;
+                    prop = prop.substr(1);
+                }
+                return function (a,b) {
+                    var result = (a[prop] < b[prop]) ? -1 : (a[prop] > b[prop]) ? 1 : 0;
+                    return result * dir;
+                }
+            };
+           
+
+            var filterResult = function(offset, limit, sort, pagesize, result){
+                if (sort) {
+                    result.sort(propSort(sort));
+                }
+
+                if (offset === undefined) {
+                    offset=0;
+                } else {
+                    offset = +offset;
+                }
+                
+                if (limit === undefined) {
+                    limit = pagesize;
+                } else {
+                    limit = +limit;
+                }
+
+                if (limit > pagesize) {
+                    limit = pagesize;
+                }
+
+                result = result.slice(offset, offset+limit);                  
+                return result;
+            };
+
+            this.getData = function(offset, limit, sort){
+                var self = this;
+                return $resource('states.json').query().$promise.then(function(result){
+                    self.states = result; //cached states                        
+                    return filterResult(offset, limit, sort, self.pageSize, result);                  
+                });                    
+            };
+
+            this.renderTable = function(offset,limit,sort,callback){
+                if(!this.states){                   
+                    this.getData(offset, limit, sort).then(function(states) {      
+                      callback(states);
+                    });
+                }
+                else{                                             
+                   var states = filterResult(offset, limit, sort, this.pageSize, this.states); 
+                   callback(states);
+                }       
+            }; 
+
+      }).service('getStates', function(internalStatesService, externalStatesService, config){
+           if(config.StatesApi === 'external'){
+               return externalStatesService;
+           }
+           else{
+               return internalStatesService
+           }
+      }).service('States', function($modal, getStates){  
+            
+            this.service = getStates;
+            
+            this.getSortValue = function(sortReverse){                   
+                if(!sortReverse){
+                    return '';
+                }
+                return '-';
+            };
+                        
+            this.getSortDir = function(sortString){
+                if(sortString.indexOf('-') === -1){
+                    return false;
+                }
+                return true;
+            }; 
+                            
+            this.getSingleState = function(states,stateAbbr){
+                var match_state = false,                            
+                i,
+                len = states.length,
+                state;
+                for (i = 0; i < len; i = i + 1) {
+                    state = states[i];                                
+                    if (state.abbreviation === stateAbbr){
+                        match_state = state;
+                        break;
+                    }
+                }
+                return match_state;
+            };
+
+            this.stateModal = function(scope){
+                return $modal({
+                    scope: scope,
+                    templateUrl: 'views/templates/state-modal.html',
+                    show: false       
+                });
+            };
+   
+
+      }).controller('MainCtrl', function ($scope, States, $location) {             
+            
+            var limit = function(){
+                return $scope.currentPage *  $scope.pageSize;
+            },
+            offset = function(){
+                return limit() - $scope.pageSize;
+            },
+            hideModal = function(){
+                 if($scope.state_modal){
+                    $scope.state_modal.hide(); //hide this modal instance
+                 }
+            },
+            showModal = function(state){
+                $scope.state = States.getSingleState($scope.states, state); //retrieve and store  a single State detail on scope to be passed on our modal view
+                $scope.state_modal = States.stateModal($scope); //store modal on scope for future reference                
+                $scope.state_modal.$promise.then($scope.state_modal.show); 
+            };          
+            
+            //listen to successful changes on url including complete page load
+            $scope.$on('$locationChangeSuccess', function (scope, next, current) {
+                var query_string = $location.search(),
+                sort_param = query_string['sort'],
+                page_param = query_string['page'],
+                detail_param = query_string['detail'];
+                
+                $scope.sortType     = (!sort_param ? 'name' : sort_param.replace(/[^a-zA-Z]/g, "")); // set the default sort type    
+                $scope.sortString   = (!sort_param ? $scope.sortType : sort_param);
+                $scope.sortReverse  = States.getSortDir($scope.sortString);
+                $scope.totalStates  = States.service.totalCount;
+                $scope.pageSize     = States.service.pageSize;
+                $scope.currentPage  = (!page_param ? 1 : parseInt(page_param,10)); 
+                
+                //render table
+                States.service.renderTable(offset(), limit(), $scope.sortString, function(result){                    
+                    $scope.states = result;
+                    if(detail_param){                        
+                       showModal(detail_param);
+                    }
+                    else{                       
+                       hideModal();
+                    }               
+                });                
+            });
+
+            
+            //update the url on page change
+            $scope.pageChange = function(page){                 
+                $location.url($location.path() + '?page='+ page +'&sort=' + $scope.sortString);               
+            }; 
+            
+            //update the url on sort direction change
+            $scope.sort = function(type){               
+                $location.url($location.path() + '?page='+ $scope.currentPage +'&sort=' + States.getSortValue(!$scope.sortReverse) + type);                
+            };
+            
+            //update the url on showing modal
+            $scope.showStateModal = function (state) {                            
+                $location.url($location.path() + '?page='+ $scope.currentPage +'&sort=' + $scope.sortString + '&detail=' + state);
+            };  
+            
+            //update the url when closing modal
+            $scope.$on('modal.hide', function() {
+                //return state back to null
+                $scope.state = null;
+                States.stateModal($scope);                                           
+                $location.url($location.path() + '?page='+ $scope.currentPage +'&sort=' + $scope.sortString);                                             
+            });           
+             
+      });
+
+   </script>
+</body>
+</html>
